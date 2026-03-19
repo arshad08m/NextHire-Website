@@ -14,15 +14,18 @@ load_dotenv()
 
 app = FastAPI(title="NextHire Waitlist API")
 
+frontend_origins_raw = os.environ.get("FRONTEND_ORIGINS", "http://localhost:5500,http://127.0.0.1:5500")
+FRONTEND_ORIGINS = [origin.strip() for origin in frontend_origins_raw.split(",") if origin.strip()]
+
 # ── CORS ──────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Restrict to your domain in production e.g. ["https://nexthire.com"]
+    allow_origins=FRONTEND_ORIGINS,
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
-# ── CONFIG (set these in Vercel Environment Variables) ────────────
+# ── CONFIG (set these in Render Environment Variables) ────────────
 SMTP_HOST    = "smtp.gmail.com"
 SMTP_PORT    = 587
 GMAIL_USER   = os.environ.get("GMAIL_USER")
@@ -82,6 +85,11 @@ def root():
     return {"status": "NextHire Waitlist API is running ✅"}
 
 
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
 @app.post("/api/notify")
 def notify(entry: WaitlistEntry):
     if not GMAIL_USER or not GMAIL_PASS:
@@ -90,6 +98,6 @@ def notify(entry: WaitlistEntry):
         send_notification(entry.email)
         return {"success": True, "message": "Notification sent"}
     except smtplib.SMTPAuthenticationError:
-        raise HTTPException(status_code=500, detail="Gmail auth failed — check GMAIL_USER and GMAIL_PASS in Vercel env vars")
+        raise HTTPException(status_code=500, detail="Gmail auth failed — check GMAIL_USER and GMAIL_PASS in Render env vars")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
